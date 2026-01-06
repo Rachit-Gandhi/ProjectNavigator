@@ -1,0 +1,17 @@
+# Default ingestion rules for smart tagging
+# Patterns can match glob strings or substrings in filenames.
+# These are intentionally simple starters for customization.
+patterns:
+  - match: "*RFP*"
+    tag: "proposal"
+  - match: "*requirement*"
+    tag: "functional"
+  - match: "*nonfunctional*"
+    tag: "nonfunctional"
+  - match: "*design*"
+    tag: "architecture"
+
+# Files can be force-tagged by exact relative path
+forced:
+  # - path: "Project_A/custom_doc.md"
+  #   tag: "custom"
