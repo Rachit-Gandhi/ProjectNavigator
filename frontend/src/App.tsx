@@ -5,16 +5,15 @@ import './App.css'
 
 const COMMANDS = [
   { label: '/clear', description: 'Reset the active chat session' },
-  { label: '/lock', description: 'Lock the assistant to the highlighted project' },
-  { label: '/help', description: 'Show available commands and filters' },
+  { label: '/help', description: 'Show available commands' },
   { label: '/status', description: 'Summarize current session context' },
 ]
 
 const SAMPLE_RESPONSES = [
-  'Here is a concise summary pulled from the latest proposal and functional spec.',
-  'The dashboard initiative reserves two sprints for QA hardening and rollout.',
-  'Authentication changes require a schema migration; budget three engineering days.',
-  'Non functional goals emphasize observability, 2s P95 response, and SOC2 controls.',
+  'I have processed your request based on the available data.',
+  'Here is the information you asked for.',
+  'The analysis of the uploaded files indicates the following results.',
+  'Please let me know if you need further clarification on this topic.',
 ]
 
 type UploadedFile = {
@@ -51,12 +50,11 @@ const escapeHtml = (value: string) =>
 function App() {
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID())
   const [projects, setProjects] = useState<UploadedProject[]>([])
-  const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     {
       id: crypto.randomUUID(),
       role: 'assistant',
-      text: 'Hi! Upload a project directory, lock a project, then ask anything. Use @proposal to focus on a file type.',
+      text: 'Hi! Upload a project directory and ask anything.',
       timestamp: nowStamp(),
     },
   ])
@@ -88,9 +86,10 @@ function App() {
   }, [message])
 
   const activeFiles = useMemo(() => {
-    const project = projects.find((p) => p.name === selectedProject)
-    return project ? project.files.slice(0, 6) : []
-  }, [projects, selectedProject])
+    // Flatten all files from all projects for display, or just show the latest uploaded ones
+    const allFiles = projects.flatMap((p) => p.files)
+    return allFiles.slice(0, 6)
+  }, [projects])
 
   const highlightedInput = useMemo(() => {
     let markup = escapeHtml(message)
@@ -128,9 +127,6 @@ function App() {
 
     const aggregated = Array.from(combined.values())
     setProjects(aggregated)
-    if (aggregated.length && !selectedProject) {
-      setSelectedProject(aggregated[0].name)
-    }
   }
 
   const pushMessage = (message: ChatMessage) => {
@@ -142,18 +138,12 @@ function App() {
       setSessionId(crypto.randomUUID())
       setChatHistory([])
       setMessage('')
-      setSelectedProject(null)
       return
     }
 
     const responseMap: Record<string, string> = {
-      '/help': 'Commands: /clear, /lock, /help, /status. Use @proposal or @requirements to filter files.',
-      '/status': selectedProject
-        ? `Currently locked to ${selectedProject}. ${projects.length} project(s) loaded.`
-        : 'No project locked. Upload a directory and /lock it to keep context.',
-      '/lock': selectedProject
-        ? `${selectedProject} remains the active project.`
-        : 'Select a project from the library before locking.',
+      '/help': 'Commands: /clear, /help, /status.',
+      '/status': `${projects.length} project(s) loaded.`,
     }
 
     const text = responseMap[command] || 'Command acknowledged.'
@@ -163,8 +153,7 @@ function App() {
 
   const synthesizeResponse = (prompt: string) => {
     const base = SAMPLE_RESPONSES[Math.floor(Math.random() * SAMPLE_RESPONSES.length)]
-    const projectNote = selectedProject ? `Project ${selectedProject}` : 'an unassigned project'
-    return `${base}\n\n${projectNote}: ${prompt}`
+    return `${base}\n\nResponse to: ${prompt}`
   }
 
   const streamAssistantResponse = (draftId: string, fullText: string) => {
@@ -280,27 +269,26 @@ function App() {
           </button>
           {!sidebarCollapsed && (
             <>
-              <section>
-                <div className="section-heading">
-                  <h3>Project Library</h3>
-                  <span className="badge">{projects.length}</span>
-                </div>
-                <div className="project-list">
-                  {projects.length === 0 && <p className="empty">Upload a directory to populate /data.</p>}
-                  {projects.map((project) => (
-                    <button
-                      key={project.name}
-                      className={project.name === selectedProject ? 'project-card active' : 'project-card'}
-                      onClick={() => setSelectedProject(project.name)}
-                    >
-                      <div>
-                        <p className="project-name">{project.name}</p>
-                        <p className="project-meta">{project.files.length} files · Updated {project.updatedAt}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
+            <section>
+              <div className="section-heading">
+                <h3>Project Library</h3>
+                <span className="badge">{projects.length}</span>
+              </div>
+              <div className="project-list">
+                {projects.length === 0 && <p className="empty">Upload a directory to populate /data.</p>}
+                {projects.map((project) => (
+                  <div
+                    key={project.name}
+                    className={'project-card'}
+                  >
+                    <div>
+                      <p className="project-name">{project.name}</p>
+                      <p className="project-meta">{project.files.length} files · Updated {project.updatedAt}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
 
               <section>
                 <div className="section-heading">
@@ -328,7 +316,7 @@ function App() {
           <div className="chat-header">
             <div>
               <p className="panel-label">Chatbot</p>
-              <h2>{selectedProject ? `Working in ${selectedProject}` : 'No project selected'}</h2>
+              <h2>AI Assistant</h2>
               <div className="session-id">Session {sessionId.slice(0, 8)}</div>
             </div>
             {isStreaming && <div className="spinner" aria-label="Processing" />}
@@ -408,11 +396,8 @@ const QuillHamburgerIcon = ({ collapsed }: { collapsed: boolean }) => (
 )
 
 const deriveTag = (path: string) => {
-  const normalized = path.toLowerCase()
-  if (normalized.includes('rfp')) return 'proposal'
-  if (normalized.includes('requirement')) return 'requirements'
-  if (normalized.includes('design')) return 'architecture'
-  return 'general'
+  const extension = path.split('.').pop() || 'file'
+  return extension.toLowerCase()
 }
 
 export default App

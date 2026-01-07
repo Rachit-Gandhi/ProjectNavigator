@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import RLock
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import re
 
 COMMAND_CLEAR = "clear"
 
-_TAG_PATTERN = re.compile(r"@([A-Za-z0-9_\-]+)")
 _COMMAND_PATTERN = re.compile(r"^/(\w+)")
 
 
@@ -17,19 +16,15 @@ _COMMAND_PATTERN = re.compile(r"^/(\w+)")
 class ChatMessage:
     role: str
     content: str
-    filters: Optional[List[str]] = None
 
 
 @dataclass
 class SessionState:
     session_id: str
-    project_lock: Optional[str] = None
     history: List[ChatMessage] = field(default_factory=list)
 
-    def append(
-        self, role: str, content: str, filters: Optional[List[str]] = None
-    ) -> None:
-        self.history.append(ChatMessage(role=role, content=content, filters=filters))
+    def append(self, role: str, content: str) -> None:
+        self.history.append(ChatMessage(role=role, content=content))
 
 
 class SessionStore:
@@ -50,19 +45,6 @@ class SessionStore:
             state = SessionState(session_id=session_id)
             self._sessions[session_id] = state
             return state
-
-    def set_project(self, session_id: str, project_id: Optional[str]) -> SessionState:
-        state = self.get(session_id)
-        state.project_lock = project_id
-        return state
-
-
-def extract_filters(message: str) -> Tuple[str, List[str]]:
-    """Return the cleaned message plus any ``@tag`` filters."""
-
-    matches = _TAG_PATTERN.findall(message)
-    cleaned = _TAG_PATTERN.sub("", message).strip()
-    return cleaned, [tag.lower() for tag in matches]
 
 
 def identify_command(message: str) -> Optional[str]:
@@ -86,6 +68,5 @@ __all__ = [
     "SessionState",
     "SessionStore",
     "apply_command",
-    "extract_filters",
     "identify_command",
 ]
